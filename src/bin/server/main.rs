@@ -1,18 +1,17 @@
 use std::{
-    io::{BufRead, BufReader, Read, Write},
     net::{SocketAddr, TcpListener},
     str::FromStr,
     sync::Arc,
     thread,
 };
 
+mod handle_client;
 mod calculator;
 mod operation;
 mod server_error;
 
-use crate::{operation::Operation, server_error::ServerError};
+use crate::{handle_client::handle_connection, server_error::ServerError};
 use calculator::Calculator;
-use distributed_calculator::protocol::Protocol;
 
 fn main() -> Result<(), ServerError> {
     let addr: SocketAddr = parse_arguments(std::env::args())?;
@@ -61,82 +60,6 @@ fn run_server(address: SocketAddr) -> Result<(), ServerError> {
 
 /// handle client connection
 
-fn handle_connection<RW: Read + Write>(mut stream: RW, calculator: Arc<std::sync::Mutex<Calculator>>)-> Result<(), ServerError> {
-    let mut buf = String::new();
-    let mut reader = BufReader::new(&mut stream);
-
-    loop {
-        buf.clear();
-
-        let bytes_read_result = reader.read_line(&mut buf);
-
-        match bytes_read_result {
-            Ok(n) => {
-                if n == 0 {
-                    // acá se podría logear
-                    return Ok(());
-                }
-            }
-            Err(_) => {
-                return Err(ServerError::ReadFailed); 
-            }
-        };
-
-        let protocol = Protocol::from_bytes(buf.trim_end().as_bytes());
-
-        match protocol {
-            Protocol::Operation(args) => handle_operation_message(&calculator, reader.get_mut(), args),
-            Protocol::Get => handle_get_message(&calculator, reader.get_mut()),
-            _ => send_protocol(Protocol::SynthaxError, reader.get_mut()),
-        }?;
-
-    }
-}
-
-
-fn send_protocol<RW: Read + Write>(protocol: Protocol, stream: &mut RW) -> Result<(), ServerError> {
-    let response = protocol.to_bytes();
-    stream.write_all(&response).map_err(|_| ServerError::WriteFailed)?;
-    Ok(())
-}
-
-fn handle_operation_message<RW: Read + Write>(calculator: &Arc<std::sync::Mutex<Calculator>>, stream : &mut RW, args: String) -> Result<(), ServerError> {
-    let op = match Operation::from_str(&args) {
-        Ok(op) => op,
-        Err(_) => {
-            return send_protocol(Protocol::ErrorOperation, stream); 
-        }
-    };
-    apply_operation(&calculator, op)?;
-    send_protocol(Protocol::Ok, stream)?;
-    Ok(())
-}
-
-fn apply_operation(calculator: &Arc<std::sync::Mutex<Calculator>>, operation: Operation) -> Result<(), ServerError> {
-    match calculator.lock() {
-        Ok(mut calc) => {
-            calc.apply(operation);
-            Ok(())
-        },
-        Err(_) => Err(ServerError::PoisonError)
-    }
-}
-
-
-fn handle_get_message<RW: Read + Write>(calculator: &Arc<std::sync::Mutex<Calculator>>, stream : &mut RW) -> Result<(), ServerError> {
-    let value = get_value(&calculator)?;
-    send_protocol(Protocol::Value(value.to_string()), stream)?; 
-    Ok(())
-}
-
-fn get_value(calculator: &Arc<std::sync::Mutex<Calculator>>) -> Result<i32, ServerError> {
-    match calculator.lock() {
-        Ok(calc) => { 
-            Ok(calc._accumulation())
-        }, 
-        Err(_) => Err(ServerError::PoisonError)
-    }
-}
 
 
 

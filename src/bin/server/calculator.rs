@@ -4,7 +4,7 @@ use crate::operation::Operation;
 
 #[derive(Default)]
 pub struct Calculator {
-    accumulation: i32,
+    accumulation: u8,
 }
 
 impl Calculator {
@@ -12,7 +12,7 @@ impl Calculator {
         Self { accumulation: 0 }
     }
 
-    pub fn _accumulation(&self) -> i32 {
+    pub fn accumulation(&self) -> u8 {
         self.accumulation
     }
 
@@ -25,3 +25,42 @@ impl Calculator {
         }
     }
 }
+
+#[cfg(test)]
+mod tests { 
+    use super::Calculator;
+    use crate::operation::Operation;
+
+    #[test]
+    fn test_add(){ 
+        let mut calc = Calculator::new();
+        calc.apply(Operation::Add(10));
+        assert_eq!(calc.accumulation(), 10);
+    }
+
+    #[test]
+    fn test_substract(){ 
+        let mut calc = Calculator::new();
+        calc.apply(Operation::Add(10));
+        calc.apply(Operation::Sub(5));
+        assert_eq!(calc.accumulation(), 10 - 5 );
+    }
+
+    #[test]
+    fn test_multiply(){ 
+        let mut calc = Calculator::new();
+        calc.apply(Operation::Add(10));
+        calc.apply(Operation::Mul(5));
+        assert_eq!(calc.accumulation(), 10 * 5 );
+    }
+
+    #[test]
+    fn test_divide(){ 
+        let mut calc = Calculator::new();
+        calc.apply(Operation::Add(10));
+        calc.apply(Operation::Div(2));
+        assert_eq!(calc.accumulation(), 10 / 2 );
+    }
+
+
+} 

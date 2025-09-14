@@ -4,7 +4,7 @@ pub enum Protocol {
     Operation(String),
     Get,
     Ok,
-    ErrorOperation,
+    ErrorOperation(String),
     Value(String), 
     SynthaxError
 }
@@ -28,7 +28,10 @@ impl Protocol {
             }
             ["GET"] => Protocol::Get,
             ["OK"] => Protocol::Ok,
-            ["ERROR"] => Protocol::ErrorOperation,
+            ["ERROR" , rest @ ..] => { 
+                let args = rest.join(" ");
+                Protocol::ErrorOperation(args)
+            },
             ["VALUE", only] => Protocol::Value((*only).to_string()),
             _ => Protocol::SynthaxError,
         }
@@ -39,9 +42,21 @@ impl Protocol {
             Protocol::Operation(args) => format!("OPERATION {}\n", args).into_bytes(),
             Protocol::Get => b"GET\n".to_vec(),
             Protocol::Ok => b"OK\n".to_vec(),
-            Protocol::ErrorOperation => b"ERROR \"Operacion invalida\"\n".to_vec(),
+            Protocol::ErrorOperation(args) => format!("ERROR \"{}\"\n", args).into_bytes(),
             Protocol::Value(val) => format!("VALUE {}\n", val).into_bytes(),
             Protocol::SynthaxError => b"SYNTHAX ERROR\n".to_vec(),
         }
     }
+
+    pub fn to_string(&self) -> String {
+        match self {
+            Protocol::Operation(args) => format!("OPERATION {}\n", args),
+            Protocol::Get => "GET\n".to_string(),
+            Protocol::Ok => "OK\n".to_string(),
+            Protocol::ErrorOperation(args) => format!("ERROR \"{}\"\n", args),
+            Protocol::Value(val) => format!("VALUE {}\n", val),
+            Protocol::SynthaxError => "SYNTHAX ERROR\n".to_string(),
+        }
+    }
+
 }

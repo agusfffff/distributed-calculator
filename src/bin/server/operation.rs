@@ -1,31 +1,74 @@
-use std::str::FromStr;
+use std::{str::FromStr, u8};
 
 #[derive(PartialEq, Eq, Debug)]
 pub enum Operation {
-    Add(i32),
-    Sub(i32),
-    Mul(i32),
-    Div(i32),
+    Add(u8),
+    Sub(u8),
+    Mul(u8),
+    Div(u8),
 }
 
 impl FromStr for Operation {
-    type Err = &'static str;
+    type Err = String;
 
     fn from_str(tokens: &str) -> Result<Self, Self::Err> {
-        // Try to convert the vector into a statically-sized array of 2 elements, failing otherwise.
         let vector: Vec<&str> = tokens.split_whitespace().collect();
 
         let [operation, operand] = vector.try_into().map_err(|_| "expected 2 arguments")?;
 
-        // Parse the operand into an u8.
-        let operand = operand.parse().map_err(|_| "operand is not an i32")?;
+        let operand = operand.parse().map_err(|e| format!("parsing error: invalid integer: {}", e))?;
 
         match operation {
             "+" => Ok(Operation::Add(operand)),
             "-" => Ok(Operation::Sub(operand)),
             "*" => Ok(Operation::Mul(operand)),
-            "/" => Ok(Operation::Div(operand)),
-            _ => Err("unknown operation"),
+            "/" => { if operand == 0 {
+                        Err("division by zero".to_string())
+                    } else {
+                        Ok(Operation::Div(operand))
+                }
+            },
+            _ => Err(format!("parsing error: unknown operation: {}", operation)),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Operation;
+    use std::str::FromStr;
+
+    #[test]
+    fn test_correct_parsing() {
+        assert_eq!(Operation::from_str("+ 10"), Ok(Operation::Add(10)));
+        assert_eq!(Operation::from_str("- 20"), Ok(Operation::Sub(20)));
+        assert_eq!(Operation::from_str("* 30"), Ok(Operation::Mul(30)));
+        assert_eq!(Operation::from_str("/ 40"), Ok(Operation::Div(40)));
+    }
+
+    #[test]
+    fn test_incorrect_quantity_of_arguments() {
+        assert_eq!(Operation::from_str("+"), Err("expected 2 arguments".to_string()));
+        assert_eq!(Operation::from_str("+ 10 20"), Err("expected 2 arguments".to_string()));
+    }
+
+    #[test]
+    fn test_not_an_integer_operand() {
+        assert_eq!(Operation::from_str("+ ten"), Err("parsing error: invalid integer: invalid digit found in string".to_string()));
+    }
+
+    #[test]
+    fn test_too_large_integer() {
+        assert_eq!(Operation::from_str("+ 300"), Err("parsing error: invalid integer: number too large to fit in target type".to_string()));
+    }
+
+    #[test]
+    fn test_unknown_operation() {
+        assert_eq!(Operation::from_str("% 10"), Err("parsing error: unknown operation: %".to_string()));
+    }
+
+    #[test]
+    fn test_division_by_zero() {
+        assert_eq!(Operation::from_str("/ 0"), Err("division by zero".to_string()));
     }
 }
