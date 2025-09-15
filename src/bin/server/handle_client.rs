@@ -51,7 +51,7 @@ fn handle_operation_message<RW: Read + Write>(calculator: &Arc<std::sync::Mutex<
             return send_protocol(Protocol::ErrorOperation(e.to_string()), stream); 
         }
     };
-    apply_operation(&calculator, op)?;
+    apply_operation(calculator, op)?;
     send_protocol(Protocol::Ok, stream)?;
     Ok(())
 }
@@ -68,7 +68,7 @@ fn apply_operation(calculator: &Arc<std::sync::Mutex<Calculator>>, operation: Op
 
 
 fn handle_get_message<RW: Read + Write>(calculator: &Arc<std::sync::Mutex<Calculator>>, stream : &mut RW) -> Result<(), ServerError> {
-    let value = get_value(&calculator)?;
+    let value = get_value(calculator)?;
     send_protocol(Protocol::Value(value.to_string()), stream)?; 
     Ok(())
 }

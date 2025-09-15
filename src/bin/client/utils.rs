@@ -66,11 +66,8 @@ fn receive_response<R: BufRead>(reader : &mut R, server_buf : &mut String ) -> R
     };
 
     let protocol: Protocol = Protocol::from_bytes(server_buf.trim_end().as_bytes());
-    match protocol {
-        Protocol::ErrorOperation(message) => {
-            eprintln!("{}", ClientError::ServerErrorMessage(message));
-        },
-        _ => {}
+    if let Protocol::ErrorOperation(message) = protocol {
+        eprintln!("{}", ClientError::ServerErrorMessage(message));
     }
     Ok(())
 }
@@ -114,7 +111,7 @@ mod tests {
 
     use distributed_calculator::protocol::Protocol;
 
-    use crate::{client_error::ClientError, utils::{last_value_of_calculator, parse_address, process_files_with_stream, receive_response, write_to_addr}};
+    use crate::{client_error::ClientError, utils::{last_value_of_calculator, parse_address, receive_response, write_to_addr}};
      
     #[test]
     fn parsing_address_successfully() {

@@ -1,3 +1,5 @@
+use std::fmt;
+
 #[derive(Debug)]
 
 pub enum Protocol {
@@ -47,16 +49,18 @@ impl Protocol {
             Protocol::SynthaxError(val) => val.as_bytes().to_vec(),
         }
     }
+}
 
-    pub fn to_string(&self) -> String {
-        match self {
+impl fmt::Display for Protocol {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
             Protocol::Operation(args) => format!("OPERATION {}\n", args),
             Protocol::Get => "GET\n".to_string(),
             Protocol::Ok => "OK\n".to_string(),
             Protocol::ErrorOperation(args) => format!("ERROR \"{}\"\n", args),
             Protocol::Value(val) => format!("VALUE {}\n", val),
             Protocol::SynthaxError(args) => args.to_string(),
-        }
+        };
+        write!(f, "{}", s)
     }
-
 }
