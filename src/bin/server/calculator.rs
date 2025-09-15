@@ -35,40 +35,38 @@ impl Calculator {
 }
 
 #[cfg(test)]
-mod tests { 
+mod tests {
     use super::Calculator;
     use crate::operation::Operation;
 
     #[test]
-    fn test_add(){ 
+    fn test_add() {
         let mut calc = Calculator::new();
         calc.apply(Operation::Add(10));
         assert_eq!(calc.accumulation(), 10);
     }
 
     #[test]
-    fn test_substract(){ 
+    fn test_substract() {
         let mut calc = Calculator::new();
         calc.apply(Operation::Add(10));
         calc.apply(Operation::Sub(5));
-        assert_eq!(calc.accumulation(), 10 - 5 );
+        assert_eq!(calc.accumulation(), 10 - 5);
     }
 
     #[test]
-    fn test_multiply(){ 
+    fn test_multiply() {
         let mut calc = Calculator::new();
         calc.apply(Operation::Add(10));
         calc.apply(Operation::Mul(5));
-        assert_eq!(calc.accumulation(), 10 * 5 );
+        assert_eq!(calc.accumulation(), 10 * 5);
     }
 
     #[test]
-    fn test_divide(){ 
+    fn test_divide() {
         let mut calc = Calculator::new();
         calc.apply(Operation::Add(10));
         calc.apply(Operation::Div(2));
-        assert_eq!(calc.accumulation(), 10 / 2 );
+        assert_eq!(calc.accumulation(), 10 / 2);
     }
-
-
-} 
+}

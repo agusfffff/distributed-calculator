@@ -7,8 +7,8 @@ pub enum Protocol {
     Get,
     Ok,
     ErrorOperation(String),
-    Value(String), 
-    SynthaxError(String)
+    Value(String),
+    SynthaxError(String),
 }
 
 impl Protocol {
@@ -30,10 +30,10 @@ impl Protocol {
             }
             ["GET"] => Protocol::Get,
             ["OK"] => Protocol::Ok,
-            ["ERROR" , rest @ ..] => { 
+            ["ERROR", rest @ ..] => {
                 let args = rest.join(" ");
                 Protocol::ErrorOperation(args)
-            },
+            }
             ["VALUE", only] => Protocol::Value((*only).to_string()),
             _ => Protocol::SynthaxError(message.join(" ")),
         }

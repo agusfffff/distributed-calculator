@@ -14,16 +14,16 @@ pub enum ServerError {
     FailedConnection,
     ///Error al conectar el socket
     BindFailed,
-    ///Error al escribir 
-    WriteFailed, 
-    ///Error de lock envenenando 
+    ///Error al escribir
+    WriteFailed,
+    ///Error de lock envenenando
     PoisonError,
     ///Error de lectura
     ReadFailed,
 }
 
 impl ServerError {
-        /// Devuelve un mensaje de error descriptivo para cada variante del ServerError Enum.
+    /// Devuelve un mensaje de error descriptivo para cada variante del ServerError Enum.
     pub fn message(&self) -> &str {
         match self {
             ServerError::MissingArgument => "A required argument is missing.",

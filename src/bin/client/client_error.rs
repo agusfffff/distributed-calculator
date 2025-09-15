@@ -19,7 +19,7 @@ pub enum ClientError {
     ///Error al recibir un mensaje incorrectamente del servidor
     ErrorMessage,
     ///Mensaje de error recibido del servidor
-    ServerErrorMessage(String)
+    ServerErrorMessage(String),
 }
 
 impl ClientError {
