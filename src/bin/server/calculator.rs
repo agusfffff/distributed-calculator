@@ -1,19 +1,29 @@
+//! Representa una calculadora simple que mantiene una acumulación y puede aplicar
+//! operaciones aritméticas básicas (suma, resta, multiplicación y división) a esa  
+//! acumulación.    
+//!     
+
 use crate::operation::Operation;
 
 #[derive(Default)]
 pub struct Calculator {
+    /// La acumulación actual de la calculadora.
     accumulation: u8,
 }
 
 impl Calculator {
+    /// Crea una nueva instancia de Calculator con la acumulación inicial en 0.
     pub fn new() -> Self {
         Self { accumulation: 0 }
     }
 
+    /// Devuelve el valor actual de la acumulación.
     pub fn accumulation(&self) -> u8 {
         self.accumulation
     }
 
+    /// Aplica una operación a la acumulación actual.
+    /// La operación puede ser suma, resta, multiplicación o división.
     pub fn apply(&mut self, op: Operation) {
         match op {
             Operation::Add(operand) => self.accumulation = self.accumulation.wrapping_add(operand),

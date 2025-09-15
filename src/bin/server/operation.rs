@@ -1,16 +1,38 @@
-use std::{str::FromStr, u8};
+//! Módulo que define operaciones aritméticas y su parsing desde strings.
+use std::{str::FromStr};
 
 #[derive(PartialEq, Eq, Debug)]
+
+/// Operaciones soportadas por la calculadora
 pub enum Operation {
+    /// Suma de un valor `u8`
     Add(u8),
+    /// Resta de un valor `u8`    
     Sub(u8),
+    /// Multiplicación por un valor `u8`
     Mul(u8),
+    /// División por un valor `u8` (no permite dividir por cero)
     Div(u8),
 }
 
 impl FromStr for Operation {
     type Err = String;
-
+    /// Convierte un string en una operación 
+    /// 
+    /// # Formato esperado 
+    /// <operaor> <valor>
+    /// 
+    /// Operadores válidos: `+`, `-`, `*`, `/`.
+    ///     
+    /// # Ejemplo
+    /// let op = Operation::from_str("+ 10").unwrap();
+    /// 
+    /// # Errores
+    /// - Si el string no tiene exactamente 2 tokens → `"expected 2 arguments"`.
+    /// - Si el segundo token no es un número válido → `"parsing error: invalid integer"`.
+    /// - División por cero → `"division by zero"`.
+    /// - Operador desconocido → `"parsing error: unknown operation"`.
+    /// 
     fn from_str(tokens: &str) -> Result<Self, Self::Err> {
         let vector: Vec<&str> = tokens.split_whitespace().collect();
 

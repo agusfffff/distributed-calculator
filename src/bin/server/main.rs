@@ -56,9 +56,7 @@ fn run_server_with_listener(listener: TcpListener) -> Result<(), ServerError> {
             }
         }
     }
-    
-    // caso donde se cierre el listener 
-    
+        
     Ok(())
     }
 
