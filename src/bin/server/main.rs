@@ -34,8 +34,12 @@ fn run_server(address: SocketAddr) -> Result<(), ServerError> {
     let listener: TcpListener =
         TcpListener::bind(address).map_err(|_| ServerError::BindFailed)?;
 
+    run_server_with_listener(listener)
+}
+    
+fn run_server_with_listener(listener: TcpListener) -> Result<(), ServerError> {
     let calculator = Arc::new(std::sync::Mutex::new(Calculator::new()));
-
+    
     for stream in listener.incoming() {
         match stream {
             Ok(stream) => {
@@ -52,20 +56,16 @@ fn run_server(address: SocketAddr) -> Result<(), ServerError> {
             }
         }
     }
-
+    
     // caso donde se cierre el listener 
-
+    
     Ok(())
-}
-
-/// handle client connection
-
-
+    }
 
 
  #[cfg(test)] 
 mod tests {
-    use std::net::TcpListener;
+    use std::{net::{TcpListener}};
 
     use crate::{parse_arguments, run_server, server_error::ServerError};
 
@@ -93,5 +93,5 @@ mod tests {
         let result =run_server(addr); 
         assert!(matches!(result, Err(ServerError::BindFailed)));
     }
-
-}
+    
+} 

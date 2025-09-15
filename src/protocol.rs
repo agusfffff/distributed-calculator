@@ -6,7 +6,7 @@ pub enum Protocol {
     Ok,
     ErrorOperation(String),
     Value(String), 
-    SynthaxError
+    SynthaxError(String)
 }
 
 impl Protocol {
@@ -16,7 +16,7 @@ impl Protocol {
                 let vector: Vec<&str> = message.split_whitespace().collect();
                 Protocol::from_str(vector)
             }
-            Err(_) => Protocol::SynthaxError,
+            Err(message) => Protocol::SynthaxError(message.to_string()),
         }
     }
 
@@ -33,7 +33,7 @@ impl Protocol {
                 Protocol::ErrorOperation(args)
             },
             ["VALUE", only] => Protocol::Value((*only).to_string()),
-            _ => Protocol::SynthaxError,
+            _ => Protocol::SynthaxError(message.join(" ")),
         }
     }
 
@@ -44,7 +44,7 @@ impl Protocol {
             Protocol::Ok => b"OK\n".to_vec(),
             Protocol::ErrorOperation(args) => format!("ERROR \"{}\"\n", args).into_bytes(),
             Protocol::Value(val) => format!("VALUE {}\n", val).into_bytes(),
-            Protocol::SynthaxError => b"SYNTHAX ERROR\n".to_vec(),
+            Protocol::SynthaxError(val) => val.as_bytes().to_vec(),
         }
     }
 
@@ -55,7 +55,7 @@ impl Protocol {
             Protocol::Ok => "OK\n".to_string(),
             Protocol::ErrorOperation(args) => format!("ERROR \"{}\"\n", args),
             Protocol::Value(val) => format!("VALUE {}\n", val),
-            Protocol::SynthaxError => "SYNTHAX ERROR\n".to_string(),
+            Protocol::SynthaxError(args) => args.to_string(),
         }
     }
 

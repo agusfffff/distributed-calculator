@@ -1,5 +1,3 @@
-use std::ops::{Add, Div, Mul, Sub};
-
 use crate::operation::Operation;
 
 #[derive(Default)]
@@ -18,10 +16,10 @@ impl Calculator {
 
     pub fn apply(&mut self, op: Operation) {
         match op {
-            Operation::Add(operand) => self.accumulation = self.accumulation.add(operand),
-            Operation::Sub(operand) => self.accumulation = self.accumulation.sub(operand),
-            Operation::Mul(operand) => self.accumulation = self.accumulation.mul(operand),
-            Operation::Div(operand) => self.accumulation = self.accumulation.div(operand),
+            Operation::Add(operand) => self.accumulation = self.accumulation.wrapping_add(operand),
+            Operation::Sub(operand) => self.accumulation = self.accumulation.wrapping_sub(operand),
+            Operation::Mul(operand) => self.accumulation = self.accumulation.wrapping_mul(operand),
+            Operation::Div(operand) => self.accumulation = self.accumulation.wrapping_div(operand),
         }
     }
 }

@@ -18,7 +18,7 @@ pub fn handle_connection<RW: Read + Write>(mut stream: RW, calculator: Arc<std::
             Ok(n) => {
                 if n == 0 {
                     // acá se podría logear
-                    return Ok(());
+                    return Ok(()); 
                 }
             }
             Err(_) => {
@@ -84,11 +84,11 @@ fn get_value(calculator: &Arc<std::sync::Mutex<Calculator>>) -> Result<u8, Serve
 
 #[cfg(test)]
 mod tests {
-    use std::{io::{Cursor, Read}, sync::Arc};
+    use std::{io::{BufRead, BufReader, Cursor, Read, Write}, net::{TcpListener, TcpStream}, sync::{Arc, Mutex}, thread};
 
     use distributed_calculator::protocol::Protocol;
 
-    use crate::{calculator::Calculator, handle_client::{get_value, handle_get_message}};
+    use crate::{calculator::Calculator, handle_client::{apply_operation, get_value, handle_connection, handle_get_message, handle_operation_message, send_protocol}};
 
     #[test]
     fn get_value_of_calculator() {        
@@ -100,7 +100,7 @@ mod tests {
 
     #[test]
     fn send_get_message() { 
-        let response = Protocol::Value("0".to_string());
+        let response = Protocol::Value("0".to_string()).to_string();
         let calculator = Arc::new(std::sync::Mutex::new(Calculator::new()));
         let mut cursor = Cursor::new(Vec::new()); 
         let mut output = String::new();
@@ -109,18 +109,17 @@ mod tests {
         cursor.set_position(0);
         cursor.read_to_string(&mut output).unwrap();
 
-        assert_eq!(output, response.to_string());
+        assert_eq!(output, response);
     }
 
     #[test]
     fn apply_operation_success(){ 
         let calculator = Arc::new(std::sync::Mutex::new(Calculator::new()));
+        let op = crate::operation::Operation::Add(5);
         
-        let mut calc = calculator.lock().unwrap();
-        calc.apply(crate::operation::Operation::Add(5));
-        let value = calc.accumulation();
+        apply_operation(&calculator, op).unwrap();        
         
-        assert_eq!(value, 5);
+        assert_eq!(calculator.lock().unwrap().accumulation(), 5);
     }
 
     #[test]
@@ -130,7 +129,7 @@ mod tests {
         let args = "+ 5".to_string();
         let response = Protocol::Ok;
 
-        crate::handle_client::handle_operation_message(&calculator, &mut cursor, args).unwrap(); 
+        handle_operation_message(&calculator, &mut cursor, args).unwrap(); 
         cursor.set_position(0);
         let mut output = String::new();
         cursor.read_to_string(&mut output).unwrap();
@@ -144,13 +143,183 @@ mod tests {
         let calculator = Arc::new(std::sync::Mutex::new(Calculator::new()));
         let mut cursor = Cursor::new(Vec::new()); 
         let args = "% 5".to_string();
-        let response = Protocol::ErrorOperation(("parsing error: unknown operation: %").to_string());
+        let response = Protocol::ErrorOperation(("parsing error: unknown operation: %").to_string()).to_string();
 
-        crate::handle_client::handle_operation_message(&calculator, &mut cursor, args).unwrap(); 
+        handle_operation_message(&calculator, &mut cursor, args).unwrap(); 
         cursor.set_position(0);
         let mut output = String::new();
         cursor.read_to_string(&mut output).unwrap();
 
-        assert_eq!(output, response.to_string());
+        assert_eq!(output, response);
     }
-}
+
+    #[test]
+    fn test_send_protocol() { 
+        let mut cursor = Cursor::new(Vec::new()); 
+        let protocol = Protocol::Ok;
+        let response = Protocol::Ok.to_string();
+
+        send_protocol(protocol, &mut cursor).unwrap(); 
+        cursor.set_position(0);
+        let mut output = String::new();
+        cursor.read_to_string(&mut output).unwrap();
+
+        assert_eq!(output, response);
+    }
+
+    #[test]
+    fn integration_test_handle_connection() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+
+        let calculator = Arc::new(Mutex::new(Calculator::new()));
+        thread::spawn(move || {
+            let (stream, _) = listener.accept().unwrap();
+            handle_connection(stream, calculator).unwrap();
+        });
+
+        let mut client = TcpStream::connect(addr).unwrap();
+        client.write_all(b"OPERATION + 1\nGET\n").unwrap();
+        client.flush().unwrap(); 
+
+        let mut reader = BufReader::new(client);
+        let mut buf = String::new();
+        reader.read_line(&mut buf).unwrap();
+        
+        assert!(buf.contains("OK"));
+
+        buf.clear();
+        reader.read_line(&mut buf).unwrap();
+        
+        assert!(buf.contains("VALUE 1"));
+    }
+
+    #[test]
+    fn integration_test_handle_connection_unexpected_message() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+
+        let calculator = Arc::new(Mutex::new(Calculator::new()));
+        thread::spawn(move || {
+            let (stream, _) = listener.accept().unwrap();
+            handle_connection(stream, calculator).unwrap();
+        });
+
+        let mut client = TcpStream::connect(addr).unwrap();
+        client.write_all(b"hola\nGET\n").unwrap();
+        client.flush().unwrap(); 
+
+        let mut reader = BufReader::new(client);
+        let mut buf = String::new();
+        reader.read_line(&mut buf).unwrap();
+
+        assert!(buf.contains("ERROR \"unexpected message: hola\""));
+
+        buf.clear();
+        reader.read_line(&mut buf).unwrap();
+
+        assert!(buf.contains("VALUE 0"));
+    }
+
+    #[test]
+    fn integration_test_handle_connection_unknown_operation() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+
+        let calculator = Arc::new(Mutex::new(Calculator::new()));
+        thread::spawn(move || {
+            let (stream, _) = listener.accept().unwrap();
+            handle_connection(stream, calculator).unwrap();
+        });
+
+        let mut client = TcpStream::connect(addr).unwrap();
+        client.write_all(b"OPERATION 8 8\nGET\n").unwrap();
+        client.flush().unwrap(); 
+
+        let mut reader = BufReader::new(client);
+        let mut buf = String::new();
+        reader.read_line(&mut buf).unwrap();
+        println!("buf: {}", buf);
+
+        assert!(buf.contains("ERROR \"parsing error: unknown operation: 8\""));
+
+        buf.clear();
+        reader.read_line(&mut buf).unwrap();
+
+        assert!(buf.contains("VALUE 0"));
+    } 
+
+    #[test]
+    fn integration_test_handle_connection_too_large_integer_operation() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+
+        let calculator = Arc::new(Mutex::new(Calculator::new()));
+        thread::spawn(move || {
+            let (stream, _) = listener.accept().unwrap();
+            handle_connection(stream, calculator).unwrap();
+        });
+
+        let mut client = TcpStream::connect(addr).unwrap();
+        client.write_all(b"OPERATION + 300\nGET\n").unwrap();
+        client.flush().unwrap(); 
+
+        let mut reader = BufReader::new(client);
+        let mut buf = String::new();
+        reader.read_line(&mut buf).unwrap();
+        println!("buf: {}", buf);
+
+        assert!(buf.contains("ERROR \"parsing error: invalid integer: number too large to fit in target type\""));
+
+        buf.clear();
+        reader.read_line(&mut buf).unwrap();
+
+        assert!(buf.contains("VALUE 0"));
+    } 
+
+    #[test]
+    fn integration_test_handle_connection_invalid_digit_operation() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+
+        let calculator = Arc::new(Mutex::new(Calculator::new()));
+        thread::spawn(move || {
+            let (stream, _) = listener.accept().unwrap();
+            handle_connection(stream, calculator).unwrap();
+        });
+
+        let mut client = TcpStream::connect(addr).unwrap();
+        client.write_all(b"OPERATION + cinco\nGET\n").unwrap();
+        client.flush().unwrap(); 
+
+        let mut reader = BufReader::new(client);
+        let mut buf = String::new();
+        reader.read_line(&mut buf).unwrap();
+        println!("buf: {}", buf);
+
+        assert!(buf.contains("ERROR \"parsing error: invalid integer: invalid digit found in string\""));
+
+        buf.clear();
+        reader.read_line(&mut buf).unwrap();
+
+        assert!(buf.contains("VALUE 0"));
+    } 
+
+    #[test]
+    fn test_client_disconnects() { 
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let addr = listener.local_addr().unwrap();
+
+    let calculator = Arc::new(Mutex::new(Calculator::new()));
+    let handle = std::thread::spawn(move || {
+        let (stream, _) = listener.accept().unwrap();
+        handle_connection(stream, calculator)
+    });
+
+    let client = TcpStream::connect(addr).unwrap();
+    drop(client); 
+
+    let result = handle.join().unwrap(); 
+    assert!(matches!(result, Ok(())));     
+    }
+}   
