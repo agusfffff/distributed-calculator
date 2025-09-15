@@ -72,7 +72,8 @@ fn process_files_with_stream<R: BufRead, W: Write + Read>(
             }
         };
 
-        let bytes = line_buf.as_bytes();
+        let line = parse_from_file(&line_buf);
+        let bytes = line.as_bytes();
 
         write_to_addr(reader.get_mut(), bytes)?;
         receive_response(&mut reader, &mut server_buf)?;
@@ -167,6 +168,22 @@ fn last_value_of_calculator<R: BufRead>(
     Ok(())
 }
 
+pub fn parse_from_file(line: &str) -> String {
+    let vector: Vec<&str> = line.split_whitespace().collect();
+
+    let vector_with_op = if vector.len() == 2 {
+        let mut v = vec!["OP"];
+        v.extend(&vector);
+        v
+    } else {
+        vector
+    };
+
+    let mut result = vector_with_op.join(" ");
+    result.push('\n'); // agregar salto de línea al final
+    result
+}
+
 #[cfg(test)]
 mod tests {
     use std::{
@@ -178,8 +195,18 @@ mod tests {
 
     use crate::{
         client_error::ClientError,
-        utils::{last_value_of_calculator, parse_address, receive_response, write_to_addr},
+        utils::{
+            last_value_of_calculator, parse_address, parse_from_file, receive_response,
+            write_to_addr,
+        },
     };
+
+    #[test]
+    fn test_parse_from_client() {
+        let input = "+ 5\n";
+        let expected = "OP + 5\n";
+        assert_eq!(parse_from_file(input), expected);
+    }
 
     #[test]
     fn parsing_address_successfully() {

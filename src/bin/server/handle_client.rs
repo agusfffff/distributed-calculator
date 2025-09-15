@@ -1,13 +1,10 @@
 //! Modulo de manejo de clientes conectados al servidor.
 use std::{
-    io::{BufRead, BufReader, Read, Write},
-    str::FromStr,
-    sync::Arc,
+    io::{BufRead, BufReader, Read, Write}, net::TcpStream, str::FromStr, sync::{mpsc::Sender, Arc}
 };
 
 use distributed_calculator::protocol::Protocol;
-
-use crate::{calculator::Calculator, operation::Operation, server_error::ServerError};
+use crate::{calculator::Calculator, logger::LogEvent, operation::Operation, server_error::ServerError};
 
 /// Maneja la conexión con un cliente.
 /// Lee mensajes del cliente, los procesa y envía respuestas.
@@ -16,10 +13,18 @@ use crate::{calculator::Calculator, operation::Operation, server_error::ServerEr
 ///
 /// # Errores
 /// - `ServerError::ReadFailed`: Si falla la lectura del stream.
-pub fn handle_connection<RW: Read + Write>(
-    mut stream: RW,
+pub fn handle_connection(
+    mut stream: TcpStream,
     calculator: Arc<std::sync::Mutex<Calculator>>,
+    sender: Sender<LogEvent>
 ) -> Result<(), ServerError> {
+  
+    let peer_addr = match stream.peer_addr() {
+        Ok(addr) => addr.to_string(),
+        Err(_) => "unknown".to_string(),
+    };
+
+
     let mut buf = String::new();
     let mut reader = BufReader::new(&mut stream);
 
@@ -32,15 +37,19 @@ pub fn handle_connection<RW: Read + Write>(
             Ok(n) => {
                 if n == 0 {
                     // acá se podría logear
+                    let _ = sender.send(LogEvent::Info(format!("[{}] Connection closed by client", peer_addr)));
                     return Ok(());
                 }
             }
             Err(_) => {
+                let _ = sender.send(LogEvent::Error(format!( "[{}] {}",peer_addr, ServerError::ReadFailed.to_string())));
                 return Err(ServerError::ReadFailed);
             }
         };
 
-        let protocol = Protocol::from_bytes(buf.trim_end().as_bytes());
+        let protocol: Protocol = Protocol::from_bytes(buf.trim_end().as_bytes());
+
+        let _ = sender.send(LogEvent::Info(format!("From [{}] received: {}", peer_addr, protocol)));
 
         match protocol {
             Protocol::Operation(args) => {
@@ -144,7 +153,7 @@ mod tests {
     use std::{
         io::{BufRead, BufReader, Cursor, Read, Write},
         net::{TcpListener, TcpStream},
-        sync::{Arc, Mutex},
+        sync::{mpsc::channel, Arc, Mutex},
         thread,
     };
 
@@ -155,7 +164,7 @@ mod tests {
         handle_client::{
             apply_operation, get_value, handle_connection, handle_get_message,
             handle_operation_message, send_protocol,
-        },
+        }, logger::LogEvent,
     };
 
     #[test]
@@ -243,13 +252,14 @@ mod tests {
         let addr = listener.local_addr().unwrap();
 
         let calculator = Arc::new(Mutex::new(Calculator::new()));
+        let (sender, _receiver) = channel::<LogEvent>();
         thread::spawn(move || {
             let (stream, _) = listener.accept().unwrap();
-            handle_connection(stream, calculator).unwrap();
+            handle_connection(stream, calculator,sender).unwrap();
         });
 
         let mut client = TcpStream::connect(addr).unwrap();
-        client.write_all(b"OPERATION + 1\nGET\n").unwrap();
+        client.write_all(b"OP + 1\nGET\n").unwrap();
         client.flush().unwrap();
 
         let mut reader = BufReader::new(client);
@@ -270,9 +280,11 @@ mod tests {
         let addr = listener.local_addr().unwrap();
 
         let calculator = Arc::new(Mutex::new(Calculator::new()));
+        let (sender, _receiver) = channel::<LogEvent>();
+
         thread::spawn(move || {
             let (stream, _) = listener.accept().unwrap();
-            handle_connection(stream, calculator).unwrap();
+            handle_connection(stream, calculator, sender).unwrap();
         });
 
         let mut client = TcpStream::connect(addr).unwrap();
@@ -297,13 +309,15 @@ mod tests {
         let addr = listener.local_addr().unwrap();
 
         let calculator = Arc::new(Mutex::new(Calculator::new()));
+        let (sender, _receiver) = channel::<LogEvent>();
+
         thread::spawn(move || {
             let (stream, _) = listener.accept().unwrap();
-            handle_connection(stream, calculator).unwrap();
+            handle_connection(stream, calculator,sender).unwrap();
         });
 
         let mut client = TcpStream::connect(addr).unwrap();
-        client.write_all(b"OPERATION 8 8\nGET\n").unwrap();
+        client.write_all(b"OP 8 8\nGET\n").unwrap();
         client.flush().unwrap();
 
         let mut reader = BufReader::new(client);
@@ -325,13 +339,15 @@ mod tests {
         let addr = listener.local_addr().unwrap();
 
         let calculator = Arc::new(Mutex::new(Calculator::new()));
+        let (sender, _receiver) = channel::<LogEvent>();
+
         thread::spawn(move || {
             let (stream, _) = listener.accept().unwrap();
-            handle_connection(stream, calculator).unwrap();
+            handle_connection(stream, calculator, sender).unwrap();
         });
 
         let mut client = TcpStream::connect(addr).unwrap();
-        client.write_all(b"OPERATION + 300\nGET\n").unwrap();
+        client.write_all(b"OP + 300\nGET\n").unwrap();
         client.flush().unwrap();
 
         let mut reader = BufReader::new(client);
@@ -355,13 +371,14 @@ mod tests {
         let addr = listener.local_addr().unwrap();
 
         let calculator = Arc::new(Mutex::new(Calculator::new()));
+        let (sender, _receiver) = channel::<LogEvent>();
         thread::spawn(move || {
             let (stream, _) = listener.accept().unwrap();
-            handle_connection(stream, calculator).unwrap();
+            handle_connection(stream, calculator, sender).unwrap();
         });
 
         let mut client = TcpStream::connect(addr).unwrap();
-        client.write_all(b"OPERATION + cinco\nGET\n").unwrap();
+        client.write_all(b"OP + cinco\nGET\n").unwrap();
         client.flush().unwrap();
 
         let mut reader = BufReader::new(client);
@@ -385,9 +402,11 @@ mod tests {
         let addr = listener.local_addr().unwrap();
 
         let calculator = Arc::new(Mutex::new(Calculator::new()));
+        let (sender, _receiver) = channel::<LogEvent>();
+
         let handle = std::thread::spawn(move || {
             let (stream, _) = listener.accept().unwrap();
-            handle_connection(stream, calculator)
+            handle_connection(stream, calculator, sender)
         });
 
         let client = TcpStream::connect(addr).unwrap();
